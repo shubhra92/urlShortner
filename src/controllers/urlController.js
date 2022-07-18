@@ -24,7 +24,6 @@ const createUrl= async function(req,res){
 
 }catch(err){return res.status(500).send({status:false,message: err.message})
 }}
-module.exports={createUrl}
 
 
 
@@ -44,3 +43,20 @@ module.exports={createUrl}
 //     "urlCode": "ghfgfg"
 //   } 
 // }
+
+
+const getUrl= async function(req,res){
+try {
+    let urlCode=req.params.urlCode
+    let checkUrl=await urlModel.findOne({urlCode})
+    if(!checkUrl){ return res.status(404).send({status:false,message:"url not found!"})}
+    
+
+    res.status(302).redirect(checkUrl.longUrl);
+
+} catch (error) {
+return res.status(500).send({status:false,message: error.message})
+    
+}
+}
+module.exports={createUrl,getUrl}
