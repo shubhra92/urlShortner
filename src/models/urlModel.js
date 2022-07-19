@@ -15,15 +15,11 @@ const urlSchema= new mongoose.Schema({
  longUrl:{
     type: String,
     require:true,
-//     validate:{ validator: validator.isUrl,
-//     message: "{VALUE} is not a valid url",
-//     isAsync: false, 
-//  }},
  },
  shortUrl:{
     type:String,
     require:true,
     unique:true
  },
-},{timeStamps:true})
+},{timestamps:true})
 module.exports=mongoose.model("Url",urlSchema);
