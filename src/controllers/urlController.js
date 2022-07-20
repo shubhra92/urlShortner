@@ -2,6 +2,30 @@ const urlModel=require("../models/urlModel");
 const shortid=require("shortid")
 const validator=require("validator");
 const { create, find } = require("../models/urlModel");
+const redis = require("redis");
+
+const { promisify } = require("util");
+
+//Connect to redis
+const redisClient = redis.createClient(
+    13517,
+  "redis-13517.c212.ap-south-1-1.ec2.cloud.redislabs.com",
+  { no_ready_check: true }
+);
+redisClient.auth("vTkviCAYObTIEVtS0oOgcHhzGwSSKlyY", function (err) {
+  if (err) throw err;
+});
+
+redisClient.on("connect", async function () {
+  console.log("Connected to Redis..");
+});
+const SET_ASYNC = promisify(redisClient.SET).bind(redisClient);
+const GET_ASYNC = promisify(redisClient.GET).bind(redisClient);
+
+
+// let cahcedProfileData = await GET_ASYNC(`${req.params.authorId}`)
+// await SET_ASYNC(`${req.params.authorId}`, JSON.stringify(profile))
+
 
 const isValid=(value)=>{
     if(typeof value === 'undefined' || value ===null)return false
@@ -19,11 +43,16 @@ const createUrl= async function(req,res){
 
     if(!regex.test(longUrl)){ return res.status(400).send({status:false,message:"the url is invalid"})}
   
-
-    let checkUrl=await urlModel.findOne({longUrl})
-
+    let  checkUrl = await GET_ASYNC("longUrl");
+    checkUrl=JSON.parse(checkUrl)
+    if(checkUrl){ return res.status(304).send({status:true,data:checkUrl})}
+    let checkurl=await urlModel.findOne({longUrl})
    
-    if(checkUrl){ return res.status(400).send({status:false,message:"the url already exists, add a new unique url"})}
+    await SET_ASYNC("longUrl", JSON.stringify(checkurl))
+   
+    // if(checkUrl){ return res.status(400).send({status:false,message:"the url already exists, add a new unique url"})}
+    if(checkurl){ return res.status(304).send({status:true,data:checkurl})}
+
     let urlCode=shortid.generate();
     let shortUrl="http://localhost:3000/"+urlCode;
     data.urlCode=urlCode;
@@ -39,9 +68,11 @@ const createUrl= async function(req,res){
 const getUrl= async function(req,res){
 try {
     let urlCode=req.params.urlCode
+    let  checkLongUrl = await GET_ASYNC("longUrl")
+    if(checkLongUrl){return res.status(302).redirect(checkLongUrl.longUrl);}
     let checkUrl=await urlModel.findOne({urlCode})
     if(!checkUrl){ return res.status(404).send({status:false,message:"url not found!"})}
-    
+    await SET_ASYNC("longUrl", JSON.stringify(checkUrl))//new
 
     res.status(302).redirect(checkUrl.longUrl);
 
