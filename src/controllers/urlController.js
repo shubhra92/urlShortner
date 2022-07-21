@@ -21,23 +21,23 @@ redisClient.on("connect", async function () {
 });
 const SET_ASYNC = promisify(redisClient.SET).bind(redisClient);
 const GET_ASYNC = promisify(redisClient.GET).bind(redisClient);
+const SET_EX=promisify(redisClient.setex).bind(redisClient);
+const DEFAULT_EXPIRATION=10;
 
 
-// let cahcedProfileData = await GET_ASYNC(`${req.params.authorId}`)
-// await SET_ASYNC(`${req.params.authorId}`, JSON.stringify(profile))
 
 
 const isValid=(value)=>{
     if(typeof value === 'undefined' || value ===null)return false
     if(typeof value ==='string' && value.trim().length==0)return false
     return true
-}
+    }
 const createUrl= async function(req,res){
     try{
     let data=req.body;
     if(!Object.keys(data).length)return res.status(400).send({status:false,message:"Plz provied the url with key longUrl"})
     let {longUrl}=data;
-    if(!isValid(longUrl))return res.status(400).send({status:false,message:"Plz provied the url"})
+    if(!isValid(longUrl))return res.status(400).send({status:false,message:"Plz provide the url"})
 
     var regex = /^(http(s)?:\/\/)?(www.)?([a-zA-Z0-9])+([\-\.]{1}[a-zA-Z0-9]+)*\.[a-zA-Z]{2,5}(:[0-9]{1,5})?(\/[^\s]*)?$/gm
 
@@ -45,22 +45,26 @@ const createUrl= async function(req,res){
   
     let  checkUrl = await GET_ASYNC(`${longUrl}`);
     checkUrl=JSON.parse(checkUrl)
-    if(checkUrl){ return res.status(200).send({status:true,data:checkUrl})}
+    if(checkUrl){ return res.status(200).send({status:true,message:"this response came from redis",data:checkUrl})}
+  
     let checkurl=await urlModel.findOne({longUrl}).select({_id:0,longUrl:1,shortUrl:1,urlCode:1})
-   
-    if(checkurl)await SET_ASYNC(`${checkurl.longUrl}`, JSON.stringify(checkurl))
-   
-    // if(checkUrl){ return res.status(400).send({status:false,message:"the url already exists, add a new unique url"})}
-     if(checkurl){ return res.status(200).send({status:true,data:checkurl})}
+    if(checkurl){ await SET_EX(`${checkurl.longUrl}`,  DEFAULT_EXPIRATION, JSON.stringify(checkurl))
+    if(!checkUrl){ await SET_EX(`${checkurl.urlCode}`,  DEFAULT_EXPIRATION, JSON.stringify(checkurl))}
+    return res.status(200).send({status:true,message:"this is a unique feild and send from database",data:checkurl})
+    }
 
-    let urlCode=shortid.generate();
+
+    let urlCode=shortid.generate().toLowerCase();
     let shortUrl="http://localhost:3000/"+urlCode;
     data.urlCode=urlCode;
     data.shortUrl=shortUrl; 
     const createData=await urlModel.create(data);
     let newData=await urlModel.findById(createData._id).select({_id:0,longUrl:1,shortUrl:1,urlCode:1})
-  
-    res.status(201).send({status:true,data:newData});
+    await SET_EX(`${longUrl}`,  DEFAULT_EXPIRATION, JSON.stringify(newData))
+    await SET_EX(`${urlCode}`,  DEFAULT_EXPIRATION, JSON.stringify(newData))
+   
+   
+    res.status(201).send({data:newData});
     }catch(err){return res.status(500).send({status:false,message: err.message})
     }}
 
@@ -74,7 +78,7 @@ try {
     let checkUrl=await urlModel.findOne({urlCode})
     if(!checkUrl){ return res.status(404).send({status:false,message:"url not found!"})}
     await SET_ASYNC(`${urlCode}`, JSON.stringify(checkUrl))//new
-
+    await SET_EX(`${urlCode}`,  DEFAULT_EXPIRATION, JSON.stringify(checkUrl));
     res.status(302).redirect(checkUrl.longUrl);
 
     } catch (error) {
