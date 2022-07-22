@@ -1,6 +1,5 @@
 const urlModel=require("../models/urlModel");
 const shortid=require("shortid")
-const validator=require("validator");
 const { create, find } = require("../models/urlModel");
 const redis = require("redis");
 
