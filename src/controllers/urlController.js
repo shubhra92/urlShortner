@@ -17,10 +17,10 @@ redisClient.auth("vTkviCAYObTIEVtS0oOgcHhzGwSSKlyY", function (err) {
 redisClient.on("connect", async function () {
   console.log("Connected to Redis..");
 });
-const SET_ASYNC = promisify(redisClient.SET).bind(redisClient);
+
 const GET_ASYNC = promisify(redisClient.GET).bind(redisClient);
 const SET_EX=promisify(redisClient.setex).bind(redisClient);
-const DEFAULT_EXPIRATION=60;
+const DEFAULT_EXPIRATION=1000;
 
 
 
@@ -42,6 +42,8 @@ const createUrl= async function(req,res){
     var regex = /^(http(s)?:\/\/)?(www.)?([a-zA-Z0-9])+([\-\.]{1}[a-zA-Z0-9]+)*\.[a-zA-Z]{2,5}(:[0-9]{1,5})?(\/[^\s]*)?$/gm
     
 
+    if(typeof longUrl !== 'string') return res.status(400).send({status: false, message: 'The URL must be in string form.'})
+    longUrl = longUrl.trim();
     if(!regex.test(longUrl)){ return res.status(400).send({status:false,message:"the url is invalid"})}
   
     let  checkUrl = await GET_ASYNC(`${longUrl}`);
